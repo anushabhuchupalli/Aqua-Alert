@@ -1,0 +1,72 @@
+from flask import Flask, request, jsonify
+from flask_cors import CORS
+import torch
+from PIL import Image
+from torchvision import transforms, models
+import numpy as np
+
+app = Flask(_name_)
+CORS(app)  # Enable CORS (Cross-Origin Resource Sharing) for your app
+
+# Load your pre-trained model with map_location set to CPU
+model_weights_path = 'my_ml_weights.pth'  # Replace with the path to your model weights file
+
+try:
+    # Define your custom ResNet model with the same architecture as the pre-trained ResNet
+    model = models.resnet18(weights=None)  # Specify weights=None to avoid deprecated 'pretrained' argument
+    num_ftrs = model.fc.in_features  # Get the number of input features for the fc layer
+    model.fc = torch.nn.Linear(num_ftrs, 6)  # Replace 6 with the number of output classes
+
+    # Load the weights into the model
+    model.load_state_dict(torch.load(model_weights_path, map_location=torch.device('cpu')))
+    model.eval()  # Set the model to evaluation mode here
+
+    # Define the image transformations
+    preprocess = transforms.Compose([
+        transforms.Resize(256),        # Adjust image size
+        transforms.CenterCrop(224),    # Crop to 224x224 pixels
+        transforms.ToTensor(),         # Convert to tensor
+        transforms.Normalize(          # Normalize image data
+            mean=[0.485, 0.456, 0.406],
+            std=[0.229, 0.224, 0.225]
+        )
+    ])
+
+except Exception as e:
+    model = None
+    print("Error loading model weights:", str(e))
+
+# Define a route for image classification
+@app.route('/predict', methods=['POST'])
+def predict():
+    try:
+        # Check if the model is loaded
+        if model is None:
+            return jsonify({"error": "Model is not loaded"})
+
+        # Check if 'image' is in the request
+        if 'image' not in request.files:
+            return jsonify({"error": "No 'image' file in the request"})
+
+        # Get the uploaded image from the request
+        image = request.files['image']
+
+        # Preprocess the image
+        image = Image.open(image)
+        image = preprocess(image)
+        image = image.unsqueeze(0)  # Add a batch dimension
+
+        # Make predictions
+        with torch.no_grad():
+            predictions = model(image)
+
+        # Apply argmax to get the predicted class
+        predicted_class = int(np.argmax(predictions))
+
+        return jsonify({"predicted_class": predicted_class})
+
+    except Exception as e:
+        return jsonify({"error": str(e)})
+
+if _name_ == '_main_':
+    app.run(host='0.0.0.0', port=5000, debug=True)
