@@ -1,0 +1,326 @@
+import React, { useState, useEffect } from 'react';
+import { View, Text, Button, Image, StyleSheet, TouchableOpacity } from 'react-native';
+import MapView, { Marker } from 'react-native-maps';
+import * as ImagePicker from 'expo-image-picker';
+import * as Location from 'expo-location';
+import Icon from 'react-native-vector-icons/FontAwesome';
+// Define About and Info components
+// Define About and Info components
+function About({ onClose }) {
+  return (
+    <Modal transparent={true} visible={true}>
+      <View style={styles.modalContainer}>
+        <View style={styles.modalContent}>
+          <Text>About Us</Text>
+          {/* Add Info content here */}
+          
+          <Button title="Close" onPress={() => onClose()} />
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+function Info({ onClose }) {
+  return (
+    <Modal transparent={true} visible={true}>
+      <View style={styles.modalContainer}>
+        <View style={styles.modalContent}>
+          <Text>Info</Text>
+          {/* Add Info content here */}
+          <Button title="Close" onPress={() => onClose()} />
+        </View>
+      </View>
+    </Modal>
+  );
+  }
+
+export default function App() {
+  
+  const [showMenu, setShowMenu] = useState(false);
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [showAbout, setShowAbout] = useState(false); // Track About modal visibility
+  const [showInfo, setShowInfo] = useState(false);   // Track Info modal visibility
+
+  
+  const pickImage = async () => {
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 1,
+    });
+
+    if (!result.cancelled) {
+      setImage(result.uri);
+      setPostOptionVisible(true);
+    }
+  };
+
+  const [image, setImage] = useState(null);
+  const [location, setLocation] = useState(null);
+  const [mapRegion, setMapRegion] = useState({
+    latitude: 20.5937,
+    longitude: 78.9629,
+    latitudeDelta: 20,
+    longitudeDelta: 20,
+  });
+  const [postOptionVisible, setPostOptionVisible] = useState(false);
+  const [postedUserLocation, setPostedUserLocation] = useState(null); // Track user's location after posting
+  const [imagePosted, setImagePosted] = useState(false); // Track whether an image has been posted
+
+  const indiaMarkers = [
+    { id: 1, latitude: 20.5937, longitude: 78.9629, color: 'red', title: 'Location 1' },
+    { id: 2, latitude: 12.9716, longitude: 77.5946, color: 'blue', title: 'Location 2' },
+    { id: 3, latitude: 18.5204, longitude: 73.8567, color: 'green', title: 'Location 3' },
+    { id: 4, latitude: 22.5726, longitude: 88.3639, color: 'green', title: 'Location 4' },
+    { id: 5, latitude: 13.0827, longitude: 80.2707, color: 'orange', title: 'Location 5' },
+    { id: 6, latitude: 27.0238, longitude: 74.2179, color: 'cyan', title: 'Location 6' },
+    { id: 7, latitude: 28.6139, longitude: 77.2090, color: 'blue', title: 'Location 7' },
+  ];
+
+  useEffect(() => {
+    (async () => {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        console.error('Permission to access location was denied');
+        return;
+      }
+      const locationData = await Location.getCurrentPositionAsync({});
+      setLocation(locationData);
+    })();
+  }, []);
+
+  const isInsideIndia = (region) => {
+    return (
+      region.latitude >= 6.0 &&
+      region.latitude <= 36.0 &&
+      region.longitude >= 68.0 &&
+      region.longitude <= 98.0
+    );
+  };
+
+  const handlePostButtonPress = () => {
+    if (location) {
+      setPostedUserLocation({
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude,
+        title: 'Your Posted Location',
+        pinColor: 'purple', // Customize the color as needed
+      });
+    }
+
+    // Use setImagePosted to track whether an image has been posted
+    setImagePosted(true);
+    setImage(null);
+    setPostOptionVisible(false);
+  };
+  const closeModal = () => {
+    setShowAbout(false);
+    setShowInfo(false);
+    setShowProfileMenu(false);
+  };
+  const handleMenuIconClick = () => {
+    setShowMenu(!showMenu);
+  };
+  const openAbout = () => {
+    setShowAbout(true);
+    setShowInfo(false);
+  };
+
+  const openInfo = () => {
+    setShowInfo(true);
+    setShowAbout(false);
+  };
+
+  return (
+    <View style={{ flex: 1 }}>
+      {/* Top Bar */}
+      <View style={styles.topBar}>
+        <TouchableOpacity style={styles.iconContainer} onPress={() => setShowMenu(!showMenu)}>
+          <Icon name="bars" size={30} color="black" />
+        </TouchableOpacity>
+        <Text style={styles.title}>AQUAALERT</Text>
+        <TouchableOpacity style={styles.iconContainer} onPress={() => setShowProfileMenu(!showProfileMenu)}>
+          <Icon name="user" size={30} color="black" />
+        </TouchableOpacity>
+
+      </View>
+      
+
+
+      {/* Map */}
+      <MapView
+        style={{ flex: 1 }}
+        initialRegion={mapRegion}
+        onRegionChangeComplete={(region) => {
+          if (isInsideIndia(region)) {
+            setMapRegion(region);
+          }
+        }}
+      >
+        {indiaMarkers.map((marker) => (
+          <Marker
+            key={marker.id}
+            coordinate={{
+              latitude: marker.latitude,
+              longitude: marker.longitude,
+            }}
+            title={marker.title}
+            pinColor={marker.color}
+          />
+        ))}
+        {location && (
+          <Marker
+            coordinate={{
+              latitude: location.coords.latitude,
+              longitude: location.coords.longitude,
+            }}
+            title="Your Location"
+          />
+        )}
+        {imagePosted && postedUserLocation && (
+          <Marker
+            coordinate={{
+              latitude: postedUserLocation.latitude,
+              longitude: postedUserLocation.longitude,
+            }}
+            title={postedUserLocation.title}
+            pinColor={postedUserLocation.pinColor}
+          />
+        )}
+      </MapView>
+
+      {/* Post Your Picture Button */}
+      <View style={styles.buttonContainer}>
+        <Button title="Capture Image" onPress={pickImage} />
+        {image && (
+          <View>
+            <Image source={{ uri: image }} style={styles.image} />
+            {postOptionVisible && (
+              <TouchableOpacity
+                style={styles.postButton}
+                onPress={handlePostButtonPress}
+              >
+                <Text style={styles.postButtonText}>Post</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
+      </View>
+
+      {/* Bottom Bar */}
+      
+      {/* Profile Menu */}
+      {showProfileMenu && (
+  <View style={styles.profileMenu}>
+    <Button title="Signup" onPress={() => console.log('Signup')} />
+    <Button title="Login" onPress={() => console.log('Login')} />
+    <Button title="Logout" onPress={() => console.log('Logout')} />
+    <Button title="Close" onPress={closeModal} />
+  </View>
+)}
+
+      {showMenu && (
+        <View style={styles.menu}>
+          <Button title="About" onPress={() => console.log('About')} />
+          <Button title="Info" onPress={() => console.log('Info')} />
+          {/* Add more menu items as needed */}
+        </View>
+      )}
+    {/* About Modal */}
+    {showAbout && <About onClose={() => setShowAbout(false)} />}
+
+{/* Info Modal */}
+{showInfo && <Info onClose={() => setShowInfo(false)} />}
+      
+    
+      </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  topBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    paddingVertical: 15,
+    paddingHorizontal: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#ccc',
+    marginTop: 25, // Add margin to move icons down
+  },
+  iconContainer: {
+    paddingHorizontal: 10,
+  },
+  title: {
+    fontSize: 24, // Increase font size to highlight AQUAALERT
+    fontWeight: 'bold', // Make AQUAALERT bold
+  },
+  buttonContainer: {
+    alignItems: 'center',
+    marginBottom: 10,
+    paddingTop:10,
+
+  },
+  image: {
+    width: 200,
+    height: 200,
+    marginTop: 20,
+  },
+  postButton: {
+    backgroundColor: '#007FFF',
+    borderRadius: 2,
+    padding: 2,
+    marginTop: 10,
+    marginBottom: 10,
+    width: 50,
+    alignItems: 'center',
+    marginLeft: 75,
+  },
+  postButtonText: {
+    color: 'white',
+    fontSize: 18,
+  },
+  bottomBar: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    paddingVertical: 50,
+    paddingHorizontal: 20,
+    borderTopWidth: 1,
+    borderTopColor: '#ccc',
+    height: 60, 
+  },
+  modalContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  modalContent: {
+    backgroundColor: 'white',
+    padding: 20,
+    borderRadius: 10,
+  },
+  profileMenu: {
+    position: 'absolute',
+    top: 70,
+    right: 10,
+    backgroundColor: 'white',
+    elevation: 5,
+    borderRadius: 5,
+    padding: 10,
+  },
+  menu: {
+    position: 'absolute',
+    top: 70,
+    left: 10,
+    backgroundColor: 'white',
+    elevation: 5,
+    borderRadius: 5,
+    padding: 10,
+  },
+});.
